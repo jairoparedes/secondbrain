@@ -1,0 +1,142 @@
+name: secondbrain
+
+services:
+  # ---------- Reverse proxy ----------
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: sb_nginx
+    restart: unless-stopped
+    ports:
+      - "${HTTP_PORT:-80}:80"
+    volumes:
+      - ./infra/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./backend/public:/var/www/html/public:ro
+    depends_on:
+      - backend
+      - frontend
+    networks:
+      - sb_net
+
+  # ---------- Backend (Laravel + PHP-FPM) ----------
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: sb_backend
+    restart: unless-stopped
+    working_dir: /var/www/html
+    env_file:
+      - .env
+    volumes:
+      - ./backend:/var/www/html
+      - backend_vendor:/var/www/html/vendor
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    networks:
+      - sb_net
+
+  # ---------- Worker de colas ----------
+  queue:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: sb_queue
+    restart: unless-stopped
+    working_dir: /var/www/html
+    command: php artisan queue:work --sleep=3 --tries=3 --max-time=3600
+    env_file:
+      - .env
+    volumes:
+      - ./backend:/var/www/html
+      - backend_vendor:/var/www/html/vendor
+    depends_on:
+      - backend
+      - redis
+    networks:
+      - sb_net
+
+  # ---------- Frontend (Next.js) ----------
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: dev
+    container_name: sb_frontend
+    restart: unless-stopped
+    working_dir: /app
+    environment:
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+      - NEXT_PUBLIC_APP_NAME=${NEXT_PUBLIC_APP_NAME}
+      - WATCHPACK_POLLING=true
+    volumes:
+      - ./frontend:/app
+      - frontend_node_modules:/app/node_modules
+      - frontend_next:/app/.next
+    networks:
+      - sb_net
+
+  # ---------- PostgreSQL + pgvector ----------
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: sb_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_DATABASE}
+      POSTGRES_USER: ${DB_USERNAME}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./infra/postgres/init.sql:/docker-entrypoint-initdb.d/10-init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME} -d ${DB_DATABASE}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - sb_net
+
+  # ---------- Redis ----------
+  redis:
+    image: redis:7-alpine
+    container_name: sb_redis
+    restart: unless-stopped
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - sb_net
+
+  # ---------- MinIO (S3-compatible) ----------
+  minio:
+    image: minio/minio:latest
+    container_name: sb_minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${AWS_ACCESS_KEY_ID}
+      MINIO_ROOT_PASSWORD: ${AWS_SECRET_ACCESS_KEY}
+    ports:
+      - "${MINIO_PORT:-9000}:9000"
+      - "${MINIO_CONSOLE_PORT:-9001}:9001"
+    volumes:
+      - minio_data:/data
+    networks:
+      - sb_net
+
+volumes:
+  postgres_data:
+  redis_data:
+  minio_data:
+  backend_vendor:
+  frontend_node_modules:
+  frontend_next:
+
+networks:
+  sb_net:
+    driver: bridge

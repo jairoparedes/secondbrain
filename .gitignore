@@ -1,0 +1,46 @@
+# Dependencias
+**/node_modules/
+**/vendor/
+
+# Build / artefactos
+**/.next/
+**/dist/
+**/build/
+**/coverage/
+**/storage/framework/cache/
+**/storage/framework/sessions/
+**/storage/framework/views/
+**/storage/logs/
+**/bootstrap/cache/*.php
+
+# Entorno
+.env
+.env.*.local
+**/.env
+!**/.env.example
+
+# Editor / SO
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Docker volumes locales
+infra/data/
+
+# Laravel
+backend/public/hot
+backend/public/storage
+backend/.phpunit.result.cache
+
+# Next
+frontend/.next/
+frontend/out/
+frontend/next-env.d.ts
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*

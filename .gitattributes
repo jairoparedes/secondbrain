@@ -1,0 +1,23 @@
+# Normalizar todo texto a LF en el repo; los checkouts en Windows pueden hacer CRLF
+* text=auto eol=lf
+
+# Forzar LF en scripts que se ejecutan dentro de contenedores Linux
+*.sh            text eol=lf
+Dockerfile      text eol=lf
+*.Dockerfile    text eol=lf
+
+# Archivos específicos de Windows siempre CRLF
+*.ps1           text eol=crlf
+*.cmd           text eol=crlf
+*.bat           text eol=crlf
+
+# Binarios: sin conversiones
+*.png           binary
+*.jpg           binary
+*.jpeg          binary
+*.gif           binary
+*.webp          binary
+*.ico           binary
+*.pdf           binary
+*.zip           binary
+*.gz            binary
