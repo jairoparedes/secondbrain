@@ -8,30 +8,32 @@ import { useAuthGuard } from '@/hooks/useAuthGuard';
 import { useAuth } from '@/stores/auth';
 import { ApiError } from '@/services/api';
 
-export default function LoginPage() {
+export default function RegisterPage() {
   useAuthGuard('guest');
   const router = useRouter();
-  const login = useAuth((s) => s.login);
+  const register = useAuth((s) => s.register);
   const loading = useAuth((s) => s.loading);
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError(null);
+    setFieldErrors({});
 
     try {
-      await login(email, password);
+      await register(email, password);
       router.replace('/notes');
     } catch (err) {
-      if (err instanceof ApiError) {
-        setFormError(
-          err.fieldError('email') ??
-            err.fieldError('password') ??
-            err.message,
-        );
+      if (err instanceof ApiError && err.fields) {
+        const perField: Record<string, string> = {};
+        for (const key of Object.keys(err.fields)) {
+          perField[key] = err.fields[key][0];
+        }
+        setFieldErrors(perField);
       } else if (err instanceof Error) {
         setFormError(err.message);
       }
@@ -42,9 +44,10 @@ export default function LoginPage() {
     <>
       <AppHeader />
       <main className="mx-auto flex min-h-[calc(100vh-56px)] max-w-md flex-col justify-center px-6 py-10">
-        <h1 className="mb-2 text-3xl font-bold tracking-tight">Entrar</h1>
+        <h1 className="mb-2 text-3xl font-bold tracking-tight">Crear cuenta</h1>
         <p className="mb-6 text-sm text-neutral-500">
-          Usá tu email y contraseña para acceder a tus notas.
+          Tu contraseña nunca sale cifrada aún (Fase 2). Por ahora la app la usa
+          para autenticarte contra la API.
         </p>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -59,6 +62,9 @@ export default function LoginPage() {
               placeholder="tu@correo.com"
               className="mt-1 w-full rounded-lg border border-neutral-300 bg-transparent px-3 py-2 outline-none focus:border-brand-500 dark:border-neutral-700"
             />
+            {fieldErrors.email && (
+              <p className="mt-1 text-xs text-red-500">{fieldErrors.email}</p>
+            )}
           </label>
 
           <label className="block">
@@ -66,11 +72,16 @@ export default function LoginPage() {
             <input
               type="password"
               required
-              autoComplete="current-password"
+              minLength={8}
+              autoComplete="new-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               className="mt-1 w-full rounded-lg border border-neutral-300 bg-transparent px-3 py-2 outline-none focus:border-brand-500 dark:border-neutral-700"
             />
+            {fieldErrors.password && (
+              <p className="mt-1 text-xs text-red-500">{fieldErrors.password}</p>
+            )}
+            <p className="mt-1 text-xs text-neutral-400">Mínimo 8 caracteres.</p>
           </label>
 
           {formError && (
@@ -84,16 +95,16 @@ export default function LoginPage() {
             disabled={loading}
             className="w-full rounded-lg bg-brand-600 px-4 py-2.5 font-medium text-white transition hover:bg-brand-700 disabled:opacity-50"
           >
-            {loading ? 'Entrando…' : 'Entrar'}
+            {loading ? 'Creando cuenta…' : 'Crear cuenta'}
           </button>
 
           <p className="text-center text-sm text-neutral-500">
-            ¿No tenés cuenta?{' '}
+            ¿Ya tenés cuenta?{' '}
             <Link
-              href="/register"
+              href="/login"
               className="font-medium text-brand-600 hover:text-brand-700"
             >
-              Crear una
+              Entrar
             </Link>
           </p>
         </form>

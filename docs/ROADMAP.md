@@ -6,7 +6,8 @@
 - [x] Migraciones SQL base (users, notes, tags, note_tags, note_relations, embeddings)
 - [x] Rutas API stub (501)
 
-## Fase 1 — MVP backend (ACTUAL)
+## Fase 1 — MVP ✅
+Backend
 - [x] Auth real: register/login/logout/refresh/me con Sanctum personal access tokens
 - [x] Manejo unificado de errores JSON `{ error: { code, message } }`
 - [x] CRUD notas con soft delete + restore + scoping por usuario
@@ -14,8 +15,16 @@
 - [x] Sincronización de tags al crear/actualizar notas con validación de ownership
 - [x] Paginación en `/api/notes` (`?page=` `?per_page=` `?trashed=`)
 - [x] Tests Feature (27/27): Auth, Notes, Tags
-- [ ] Editor Markdown básico en frontend
-- [ ] Lista + búsqueda simple `LIKE`
+
+Frontend
+- [x] Cliente HTTP tipado + tipos compartidos con el backend
+- [x] Store de auth con Zustand + persistencia en localStorage
+- [x] Hook `useAuthGuard` para rutas protegidas/guest
+- [x] Páginas `/register`, `/login`, `/notes`, home con estado de sesión
+- [x] Editor Markdown con preview split-pane (sin dependencias)
+- [x] TagPicker con creación inline
+- [x] Búsqueda local por texto sobre notas cargadas
+- [x] Papelera: listar, eliminar (soft), restaurar
 
 ## Fase 2 — Seguridad (2–3 semanas)
 - [ ] Derivación de clave en cliente (Argon2id WASM)
