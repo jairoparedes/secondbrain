@@ -25,13 +25,15 @@ Route::get('/ping', fn () => response()->json([
     'time' => now()->toIso8601String(),
 ]));
 
-// ---------- Auth (públicos) ----------
+// ---------- Auth ----------
 Route::prefix('auth')->group(function () {
+    // Públicos
     Route::post('register', [AuthController::class, 'register']);
     Route::post('login', [AuthController::class, 'login']);
-    Route::post('refresh', [AuthController::class, 'refresh']);
 
+    // Requieren un token válido
     Route::middleware('auth:sanctum')->group(function () {
+        Route::post('refresh', [AuthController::class, 'refresh']);
         Route::post('logout', [AuthController::class, 'logout']);
         Route::get('me', [AuthController::class, 'me']);
     });
@@ -40,9 +42,10 @@ Route::prefix('auth')->group(function () {
 // ---------- Rutas autenticadas ----------
 Route::middleware('auth:sanctum')->group(function () {
 
-    // Notes
-    Route::apiResource('notes', NotesController::class);
+    // Notes. La ruta /restore se declara antes del apiResource para que
+    // el router no intente resolverla como show/{note}.
     Route::post('notes/{id}/restore', [NotesController::class, 'restore']);
+    Route::apiResource('notes', NotesController::class);
 
     // Tags
     Route::get('tags', [TagsController::class, 'index']);

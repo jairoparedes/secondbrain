@@ -10,7 +10,9 @@ return [
         Sanctum::currentApplicationUrlWithPort(),
     ))),
 
-    'guard' => ['web'],
+    // API puro con Bearer tokens: no usamos fallback de guard web/sesión.
+    // Si se añade SPA con cookies en Next.js, volver a ['web'].
+    'guard' => [],
 
     'expiration' => null,
 

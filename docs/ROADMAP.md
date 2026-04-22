@@ -1,15 +1,19 @@
 # Roadmap
 
-## Fase 0 — Esqueleto (ACTUAL)
+## Fase 0 — Esqueleto ✅
 - [x] Monorepo: `backend/`, `frontend/`, `infra/`, `docs/`, `scripts/`
 - [x] Docker Compose: nginx + Laravel + Next.js + Postgres + Redis + MinIO
 - [x] Migraciones SQL base (users, notes, tags, note_tags, note_relations, embeddings)
 - [x] Rutas API stub (501)
 
-## Fase 1 — MVP (4–6 semanas)
-- [ ] Auth real: register/login/refresh con Sanctum + Argon2id
-- [ ] CRUD notas (aún sin cifrado)
-- [ ] Tags
+## Fase 1 — MVP backend (ACTUAL)
+- [x] Auth real: register/login/logout/refresh/me con Sanctum personal access tokens
+- [x] Manejo unificado de errores JSON `{ error: { code, message } }`
+- [x] CRUD notas con soft delete + restore + scoping por usuario
+- [x] Tags con scoping por usuario y `(user_id, name)` unique
+- [x] Sincronización de tags al crear/actualizar notas con validación de ownership
+- [x] Paginación en `/api/notes` (`?page=` `?per_page=` `?trashed=`)
+- [x] Tests Feature (27/27): Auth, Notes, Tags
 - [ ] Editor Markdown básico en frontend
 - [ ] Lista + búsqueda simple `LIKE`
 
