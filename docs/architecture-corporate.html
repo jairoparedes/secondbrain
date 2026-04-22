@@ -1,0 +1,634 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Second Brain · Arquitectura de referencia</title>
+<style>
+  :root {
+    --bg:        #f5f7fb;
+    --surface:   #ffffff;
+    --surface-2: #f9fafc;
+    --ink:       #0f172a;
+    --ink-2:     #334155;
+    --muted:     #64748b;
+    --line:      #e2e8f0;
+    --line-2:    #cbd5e1;
+
+    --brand:       #0b2a5b;
+    --brand-2:     #1e3a8a;
+    --brand-soft:  #eef2ff;
+    --accent:      #1d4ed8;
+
+    --c-client:    #1d4ed8;
+    --c-edge:      #0e7490;
+    --c-app:       #0b2a5b;
+    --c-worker:    #475569;
+    --c-data:      #047857;
+    --c-external:  #94a3b8;
+
+    --shadow-sm: 0 1px 2px rgba(15,23,42,0.06);
+    --shadow-md: 0 4px 12px rgba(15,23,42,0.08), 0 1px 3px rgba(15,23,42,0.05);
+    --shadow-lg: 0 12px 28px rgba(15,23,42,0.10), 0 2px 6px rgba(15,23,42,0.06);
+  }
+
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; background: var(--bg); color: var(--ink);
+    font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    font-feature-settings: "ss01", "cv11";
+    min-height: 100vh;
+  }
+
+  /* ---------- Header ---------- */
+  header.page {
+    background: #ffffff;
+    border-bottom: 1px solid var(--line);
+  }
+  .page-inner {
+    max-width: 1360px; margin: 0 auto; padding: 28px 32px 24px;
+    display: grid; grid-template-columns: 1fr auto; align-items: end; gap: 24px;
+  }
+  .eyebrow {
+    color: var(--accent); font-weight: 600; letter-spacing: 0.14em;
+    text-transform: uppercase; font-size: 11px; margin-bottom: 8px;
+  }
+  header.page h1 {
+    margin: 0; font-size: 30px; letter-spacing: -0.01em; color: var(--brand);
+  }
+  header.page .sub {
+    color: var(--ink-2); font-size: 14px; line-height: 1.55; max-width: 820px; margin-top: 8px;
+  }
+  .doc-meta {
+    text-align: right; font-size: 12px; color: var(--muted); line-height: 1.7;
+  }
+  .doc-meta .title { color: var(--ink); font-weight: 600; font-size: 13px; }
+
+  /* ---------- Status strip ---------- */
+  .status-strip {
+    max-width: 1360px; margin: 20px auto 0; padding: 0 32px;
+    display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px;
+  }
+  @media (max-width: 1000px) { .status-strip { grid-template-columns: repeat(3, 1fr); } }
+  @media (max-width: 600px)  { .status-strip { grid-template-columns: repeat(2, 1fr); } }
+  .phase {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 8px;
+    padding: 10px 12px; box-shadow: var(--shadow-sm);
+  }
+  .phase .n {
+    font-size: 10.5px; color: var(--muted); letter-spacing: 0.12em; text-transform: uppercase;
+  }
+  .phase .t { font-size: 13px; color: var(--ink); font-weight: 600; margin-top: 2px; }
+  .phase.done  { border-left: 3px solid #047857; }
+  .phase.doing { border-left: 3px solid var(--accent); background: #f8faff; }
+  .phase.soon  { border-left: 3px solid var(--line-2); color: var(--muted); }
+  .phase .tag  { display:inline-block; font-size: 10.5px; margin-top: 6px; color:#047857; font-weight:600; }
+  .phase.doing .tag { color: var(--accent); }
+  .phase.soon  .tag { color: var(--muted); }
+
+  /* ---------- Main ---------- */
+  main {
+    max-width: 1360px; margin: 24px auto 56px; padding: 0 32px;
+    display: grid; grid-template-columns: 1fr 360px; gap: 24px;
+  }
+  @media (max-width: 1100px) {
+    main { grid-template-columns: 1fr; }
+    .canvas-wrap { overflow-x: auto; }
+  }
+
+  .section-title {
+    font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--muted); font-weight: 600;
+    margin: 0 0 10px;
+  }
+
+  .canvas-wrap {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 18px 16px 10px;
+    box-shadow: var(--shadow-md);
+  }
+  .canvas-wrap h2 {
+    margin: 0 0 14px; font-size: 18px; letter-spacing: -0.005em; color: var(--brand);
+  }
+
+  .canvas {
+    position: relative;
+    width: 1220px;
+    height: 760px;
+    margin: 0 auto;
+    background:
+      linear-gradient(var(--surface-2), var(--surface-2)),
+      repeating-linear-gradient(0deg, var(--line) 0 1px, transparent 1px 48px),
+      repeating-linear-gradient(90deg, var(--line) 0 1px, transparent 1px 48px);
+    background-blend-mode: normal, multiply, multiply;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+  }
+
+  .layer-band {
+    position: absolute; left: 0; right: 0; height: 170px;
+    border-top: 1px dashed var(--line);
+    pointer-events: none;
+  }
+  .layer-band .label {
+    position: absolute; left: 14px; top: 10px;
+    font-size: 10.5px; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--muted); font-weight: 600;
+    background: var(--surface); padding: 2px 8px; border-radius: 4px; border: 1px solid var(--line);
+  }
+
+  .node {
+    position: absolute;
+    width: 240px;
+    padding: 12px 14px 14px;
+    border-radius: 10px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    color: var(--ink);
+    cursor: pointer;
+    transition: transform 120ms ease, box-shadow 120ms ease, border-color 120ms ease;
+    box-shadow: var(--shadow-sm);
+    user-select: none;
+  }
+  .node:hover {
+    transform: translateY(-1px);
+    border-color: var(--line-2);
+    box-shadow: var(--shadow-md);
+  }
+  .node.active {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(29,78,216,0.12), var(--shadow-md);
+  }
+  .node::before {
+    content: ""; position: absolute; left: -1px; top: -1px; bottom: -1px;
+    width: 4px; border-radius: 10px 0 0 10px; background: var(--c-app);
+  }
+  .node.client::before   { background: var(--c-client); }
+  .node.edge::before     { background: var(--c-edge); }
+  .node.app::before      { background: var(--c-app); }
+  .node.worker::before   { background: var(--c-worker); }
+  .node.data::before     { background: var(--c-data); }
+  .node.external::before { background: var(--c-external); }
+  .node.external { border-style: dashed; background: var(--surface-2); }
+
+  .node .title { display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 14px; }
+  .node .mark {
+    width: 26px; height: 26px; border-radius: 6px;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 700; color: #ffffff; letter-spacing: 0.02em;
+    background: var(--c-app);
+  }
+  .node.client .mark   { background: var(--c-client); }
+  .node.edge   .mark   { background: var(--c-edge); }
+  .node.app    .mark   { background: var(--c-app); }
+  .node.worker .mark   { background: var(--c-worker); }
+  .node.data   .mark   { background: var(--c-data); }
+  .node.external .mark { background: var(--c-external); }
+
+  .node .meta { color: var(--muted); font-size: 12px; margin-top: 6px; line-height: 1.5; }
+  .node .chips { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 5px; }
+  .chip {
+    font-size: 10.5px; padding: 2px 7px; border-radius: 4px;
+    background: var(--surface-2); border: 1px solid var(--line); color: var(--muted);
+    font-weight: 500;
+  }
+  .chip.ok   { color: #047857; border-color: #a7f3d0; background: #ecfdf5; }
+  .chip.soon { color: var(--accent); border-color: #bfdbfe; background: #eff6ff; }
+  .chip.warn { color: #9a3412; border-color: #fed7aa; background: #fff7ed; }
+
+  svg.edges {
+    position: absolute; inset: 0; width: 100%; height: 100%;
+    pointer-events: none;
+  }
+  .edge-label {
+    position: absolute;
+    font-size: 10.5px;
+    color: var(--ink-2);
+    background: #ffffff;
+    padding: 2px 7px;
+    border-radius: 4px;
+    white-space: nowrap;
+    border: 1px solid var(--line);
+    pointer-events: none;
+    font-weight: 500;
+  }
+
+  /* ---------- Aside ---------- */
+  aside.panel {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 18px 20px;
+    position: sticky; top: 20px;
+    height: fit-content;
+    box-shadow: var(--shadow-md);
+  }
+  aside h2 {
+    margin: 0 0 2px; font-size: 17px; letter-spacing: -0.005em; color: var(--brand);
+    display: flex; align-items: center; gap: 10px;
+  }
+  aside h2 .mark {
+    width: 26px; height: 26px; border-radius: 6px; color: #fff;
+    display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700;
+  }
+  aside .tagline { color: var(--muted); font-size: 12.5px; margin-bottom: 12px; }
+  aside h3 {
+    margin: 16px 0 6px; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--muted); font-weight: 600;
+  }
+  aside p { font-size: 13.5px; line-height: 1.6; margin: 6px 0; color: var(--ink-2); }
+  aside p code, aside ul code {
+    background: var(--brand-soft); padding: 1px 6px; border-radius: 3px;
+    font-size: 12.5px; color: var(--brand-2); font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  aside .panel-hint { color: var(--muted); font-size: 13px; line-height: 1.6; }
+
+  /* ---------- Footer blocks ---------- */
+  .blocks {
+    max-width: 1360px; margin: 8px auto 20px; padding: 0 32px;
+    display: grid; grid-template-columns: 1.2fr 1fr; gap: 20px;
+  }
+  @media (max-width: 1000px) { .blocks { grid-template-columns: 1fr; } }
+
+  .card {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
+    padding: 18px 22px; box-shadow: var(--shadow-sm);
+  }
+  .card h3 {
+    margin: 0 0 10px; font-size: 16px; letter-spacing: -0.005em; color: var(--brand);
+  }
+  .card p { color: var(--ink-2); font-size: 13.5px; line-height: 1.65; margin: 6px 0; }
+  .card p code { background: var(--brand-soft); color: var(--brand-2); padding: 1px 6px; border-radius: 3px; font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px; }
+
+  .legend {
+    display: flex; flex-wrap: wrap; gap: 10px; margin-top: 6px;
+  }
+  .legend .swatch {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: var(--surface-2); border: 1px solid var(--line);
+    padding: 5px 10px; border-radius: 6px; font-size: 12px; color: var(--ink-2); font-weight: 500;
+  }
+  .legend .swatch i { width: 10px; height: 10px; border-radius: 2px; }
+
+  /* Flow table */
+  table.flow {
+    width: 100%; border-collapse: collapse; font-size: 13px;
+  }
+  table.flow th, table.flow td {
+    padding: 8px 10px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top;
+  }
+  table.flow th {
+    color: var(--muted); font-weight: 600; font-size: 11px;
+    letter-spacing: 0.08em; text-transform: uppercase;
+    border-bottom: 1px solid var(--line-2);
+  }
+  table.flow td.step {
+    font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 12px; color: var(--muted); width: 40px;
+  }
+  table.flow td.actor { font-weight: 600; color: var(--brand); width: 130px; white-space: nowrap; }
+  table.flow td.desc { color: var(--ink-2); }
+  table.flow td code {
+    background: var(--brand-soft); color: var(--brand-2); padding: 1px 5px; border-radius: 3px;
+    font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px;
+  }
+
+  footer.page {
+    max-width: 1360px; margin: 0 auto 40px; padding: 0 32px;
+    color: var(--muted); font-size: 12px; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px;
+  }
+  footer.page .right { text-align: right; }
+</style>
+</head>
+<body>
+
+<header class="page">
+  <div class="page-inner">
+    <div>
+      <div class="eyebrow">Arquitectura de referencia</div>
+      <h1>Second Brain</h1>
+      <div class="sub">
+        Plataforma privada de notas con arquitectura <em>zero-knowledge</em>, búsqueda
+        semántica e IA. Este documento describe las piezas del sistema, sus
+        responsabilidades y cómo se comunican entre sí. Hacer click sobre un
+        nodo del diagrama muestra detalles técnicos y ubicación en el repositorio.
+      </div>
+    </div>
+    <div class="doc-meta">
+      <div class="title">Documento</div>
+      <div>ARCH-REF · v1.0</div>
+      <div>Clasificación: interno</div>
+      <div>Estado: Fase 1 MVP · backend</div>
+    </div>
+  </div>
+
+  <div class="status-strip">
+    <div class="phase done"><div class="n">Fase 0</div><div class="t">Esqueleto e infraestructura</div><div class="tag">Completado</div></div>
+    <div class="phase doing"><div class="n">Fase 1</div><div class="t">MVP backend · Auth + Notes + Tags</div><div class="tag">En curso</div></div>
+    <div class="phase soon"><div class="n">Fase 2</div><div class="t">Cifrado extremo a extremo</div><div class="tag">Planificado</div></div>
+    <div class="phase soon"><div class="n">Fase 3</div><div class="t">Búsqueda (FTS + blind index)</div><div class="tag">Planificado</div></div>
+    <div class="phase soon"><div class="n">Fase 4</div><div class="t">Inteligencia artificial</div><div class="tag">Planificado</div></div>
+    <div class="phase soon"><div class="n">Fase 5</div><div class="t">Sincronización multi-dispositivo</div><div class="tag">Planificado</div></div>
+  </div>
+</header>
+
+<main>
+  <div>
+    <div class="section-title">Diagrama lógico del sistema</div>
+    <div class="canvas-wrap">
+      <h2>Componentes y flujos de comunicación</h2>
+      <div class="canvas" id="canvas">
+
+        <!-- Layer bands -->
+        <div class="layer-band" style="top: 0;"><span class="label">Cliente</span></div>
+        <div class="layer-band" style="top: 170px;"><span class="label">Perímetro (edge)</span></div>
+        <div class="layer-band" style="top: 340px;"><span class="label">Aplicación</span></div>
+        <div class="layer-band" style="top: 560px;"><span class="label">Datos</span></div>
+
+        <!-- SVG edges -->
+        <svg class="edges" viewBox="0 0 1220 760" preserveAspectRatio="none">
+          <defs>
+            <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5"
+                    markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 z" fill="#1e3a8a"/>
+            </marker>
+            <marker id="arrow-ext" viewBox="0 0 10 10" refX="9" refY="5"
+                    markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 z" fill="#94a3b8"/>
+            </marker>
+          </defs>
+
+          <!-- client -> nginx -->
+          <path d="M 200,170 C 200,220 300,240 420,310" stroke="#1e3a8a" stroke-width="1.6" fill="none" marker-end="url(#arrow)"/>
+          <!-- nginx -> frontend -->
+          <path d="M 490,310 C 420,360 280,360 240,420" stroke="#1e3a8a" stroke-width="1.6" fill="none" marker-end="url(#arrow)"/>
+          <!-- nginx -> laravel -->
+          <path d="M 560,310 C 600,360 620,390 620,420" stroke="#1e3a8a" stroke-width="1.6" fill="none" marker-end="url(#arrow)"/>
+          <!-- frontend <-> laravel logical -->
+          <path d="M 360,480 C 430,490 500,490 500,480" stroke="#94a3b8" stroke-width="1.2" stroke-dasharray="4,4" fill="none" opacity="0.8"/>
+
+          <!-- laravel -> postgres -->
+          <path d="M 610,540 C 500,570 380,600 340,620" stroke="#047857" stroke-width="1.6" fill="none" marker-end="url(#arrow)"/>
+          <!-- laravel -> redis -->
+          <path d="M 680,540 C 680,580 660,600 620,620" stroke="#047857" stroke-width="1.6" fill="none" marker-end="url(#arrow)"/>
+          <!-- laravel -> minio -->
+          <path d="M 750,540 C 820,590 900,610 920,620" stroke="#047857" stroke-width="1.6" fill="none" marker-end="url(#arrow)"/>
+
+          <!-- laravel -> queue -->
+          <path d="M 860,470 C 910,470 940,470 980,470" stroke="#475569" stroke-width="1.6" fill="none" marker-end="url(#arrow)"/>
+
+          <!-- queue -> redis / postgres / minio -->
+          <path d="M 1060,540 C 980,590 820,610 720,625" stroke="#475569" stroke-width="1.3" stroke-dasharray="5,4" fill="none" marker-end="url(#arrow)"/>
+          <path d="M 1020,540 C 760,600 440,625 360,635" stroke="#475569" stroke-width="1.2" stroke-dasharray="5,4" fill="none" opacity="0.55"/>
+          <path d="M 1100,540 C 1080,580 1030,610 980,620" stroke="#475569" stroke-width="1.2" stroke-dasharray="5,4" fill="none" opacity="0.55"/>
+
+          <!-- external openai -->
+          <path d="M 1060,170 C 920,250 860,330 820,420" stroke="#94a3b8" stroke-width="1.4" stroke-dasharray="6,5" fill="none" marker-end="url(#arrow-ext)"/>
+          <path d="M 1120,170 C 1150,280 1160,380 1120,420" stroke="#94a3b8" stroke-width="1.4" stroke-dasharray="6,5" fill="none" marker-end="url(#arrow-ext)"/>
+        </svg>
+
+        <!-- edge labels -->
+        <div class="edge-label" style="left: 205px; top: 218px;">HTTPS · :80</div>
+        <div class="edge-label" style="left: 286px; top: 365px;">HTTP (proxy)</div>
+        <div class="edge-label" style="left: 574px; top: 365px;">FastCGI · :9000</div>
+        <div class="edge-label" style="left: 400px; top: 464px;">fetch /api/*</div>
+        <div class="edge-label" style="left: 358px; top: 582px;">PDO (pgsql)</div>
+        <div class="edge-label" style="left: 608px; top: 588px;">phpredis</div>
+        <div class="edge-label" style="left: 832px; top: 592px;">AWS SDK · S3</div>
+        <div class="edge-label" style="left: 892px; top: 456px;">encola trabajo</div>
+        <div class="edge-label" style="left: 800px; top: 612px;">consume job</div>
+        <div class="edge-label" style="left: 860px; top: 308px;">HTTPS · embeddings</div>
+
+      </div>
+    </div>
+
+    <div class="blocks" style="padding: 20px 0 0;">
+      <div class="card">
+        <h3>Resumen ejecutivo</h3>
+        <p>
+          El usuario accede desde el <strong>navegador</strong> a <code>http://localhost</code>.
+          Todo el tráfico entra por <strong>Nginx</strong>, que actúa como único punto de entrada.
+          Las páginas y recursos estáticos se sirven desde <strong>Next.js</strong>; las peticiones
+          a <code>/api/*</code> se enrutan a <strong>Laravel</strong>, que autentica al usuario con
+          un token Bearer de <strong>Sanctum</strong>.
+        </p>
+        <p>
+          Laravel se apoya en tres servicios de datos: <strong>PostgreSQL</strong> como fuente de verdad
+          (incluyendo búsqueda vectorial con <code>pgvector</code>), <strong>Redis</strong> como caché,
+          almacén de sesiones y cola de trabajos, y <strong>MinIO</strong> como almacenamiento
+          compatible con S3 para adjuntos y exportaciones.
+        </p>
+        <p>
+          Los trabajos largos (generación de embeddings, reindexado, envío de mails) se delegan
+          al <strong>Queue Worker</strong>, que los consume de Redis de forma asíncrona.
+          La integración con <strong>OpenAI</strong> (Fase 4) es opcional y consciente de la
+          ruptura del modelo zero-knowledge.
+        </p>
+      </div>
+
+      <div class="card">
+        <h3>Leyenda</h3>
+        <div class="legend">
+          <div class="swatch"><i style="background:var(--c-client)"></i>Cliente</div>
+          <div class="swatch"><i style="background:var(--c-edge)"></i>Edge / proxy</div>
+          <div class="swatch"><i style="background:var(--c-app)"></i>Aplicación</div>
+          <div class="swatch"><i style="background:var(--c-worker)"></i>Worker asíncrono</div>
+          <div class="swatch"><i style="background:var(--c-data)"></i>Datos</div>
+          <div class="swatch"><i style="background:var(--c-external)"></i>Externo (futuro)</div>
+        </div>
+        <p style="margin-top:14px;">
+          <strong>Flecha sólida:</strong> comunicación síncrona activa.<br>
+          <strong>Flecha discontinua:</strong> comunicación asíncrona o aún no implementada.
+        </p>
+      </div>
+    </div>
+
+    <div class="section-title" style="margin-top: 22px;">Flujo de un request: crear una nota</div>
+    <div class="card">
+      <table class="flow">
+        <thead>
+          <tr><th style="width:40px">#</th><th>Actor</th><th>Acción</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="step">1</td><td class="actor">Navegador</td><td class="desc">El usuario escribe una nota y la aplicación envía <code>POST /api/notes</code> con el token Bearer en el encabezado <code>Authorization</code>.</td></tr>
+          <tr><td class="step">2</td><td class="actor">Nginx</td><td class="desc">Reconoce que la ruta empieza con <code>/api</code> y reenvía la petición al backend por FastCGI al puerto 9000.</td></tr>
+          <tr><td class="step">3</td><td class="actor">Laravel</td><td class="desc">El middleware <code>auth:sanctum</code> valida el token contra <code>personal_access_tokens</code>. Si falla, responde <code>401</code>.</td></tr>
+          <tr><td class="step">4</td><td class="actor">Laravel</td><td class="desc">Valida el payload (<code>content_ciphertext</code>, <code>tag_ids</code>, etc.) y verifica que los tags pertenecen al usuario.</td></tr>
+          <tr><td class="step">5</td><td class="actor">PostgreSQL</td><td class="desc">Laravel ejecuta un <code>INSERT</code> en <code>notes</code> y sincroniza la tabla pivote <code>note_tags</code>.</td></tr>
+          <tr><td class="step">6</td><td class="actor">Redis</td><td class="desc">Opcionalmente, Laravel encola un trabajo (p. ej. generar embedding) en la cola <code>default</code>.</td></tr>
+          <tr><td class="step">7</td><td class="actor">Laravel</td><td class="desc">Devuelve <code>201 Created</code> con el recurso completo: <code>id</code>, campos cifrados y lista de <code>tag_ids</code>.</td></tr>
+          <tr><td class="step">8</td><td class="actor">Queue Worker</td><td class="desc">En segundo plano, consume el trabajo, llama a OpenAI (Fase 4), guarda el vector resultante en <code>embeddings</code> con <code>pgvector</code>.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <aside class="panel" id="panel">
+    <div id="panel-empty">
+      <h2><span class="mark" style="background:var(--brand-2)">i</span>Detalles de componente</h2>
+      <p class="panel-hint">
+        Seleccione un nodo del diagrama para inspeccionar su responsabilidad,
+        tecnologías específicas, archivos relevantes del repositorio y la fase
+        del roadmap a la que pertenece.
+      </p>
+    </div>
+    <div id="panel-content" style="display:none"></div>
+  </aside>
+</main>
+
+<footer class="page">
+  <div>Second Brain · Arquitectura de referencia · Documento interno</div>
+  <div class="right">Generado desde <code>docs/architecture-corporate.html</code></div>
+</footer>
+
+<script>
+  // -------- Nodes data ----------
+  const NODES = [
+    {
+      id: 'client', cls: 'client', x: 80,  y: 60,  mark: 'CL',
+      name: 'Cliente (navegador / PWA)',
+      tagline: 'Capa de presentación y criptografía local',
+      chips: [ {t:'Web Crypto API', k:'soon'}, {t:'IndexedDB', k:'soon'}, {t:'Bearer token', k:'ok'} ],
+      sections: [
+        { h: 'Responsabilidad', body: 'Renderiza la interfaz de usuario, conserva el token emitido por Sanctum, y ejecuta localmente la criptografía en las fases que lo requieren.' },
+        { h: 'Estrategia offline (Fase 5)', body: 'Event log en IndexedDB con sincronización mediante push/pull contra /api/sync. Resolución de conflictos: last-writer-wins con posibilidad de merge manual.' },
+        { h: 'Modelo zero-knowledge (Fase 2)', body: 'Argon2id (WebAssembly) deriva la master_key a partir de la contraseña del usuario. AES-256-GCM cifra título y contenido. El backend nunca accede al texto plano.' },
+      ],
+    },
+    {
+      id: 'nginx', cls: 'edge', x: 420, y: 240, mark: 'NX',
+      name: 'Nginx 1.27 (reverse proxy)',
+      tagline: 'Único punto de entrada · puerto 80',
+      chips: [ {t:'FastCGI', k:'ok'}, {t:'WebSocket HMR', k:'ok'}, {t:'TLS en producción', k:'soon'} ],
+      sections: [
+        { h: 'Responsabilidad', body: 'Recibe todo el tráfico HTTP/S. Enruta las peticiones a los upstreams correspondientes según la ruta.' },
+        { h: 'Reglas de enrutamiento', body: 'Rutas bajo /api se pasan a Laravel mediante FastCGI hacia el puerto 9000. El resto, incluido /_next/webpack-hmr, se proxean al contenedor de Next.js.' },
+        { h: 'Ubicación', body: 'infra/nginx/default.conf' },
+        { h: 'Seguridad', body: 'Headers X-Frame-Options, X-Content-Type-Options, Referrer-Policy, X-XSS-Protection. En producción se añade TLS y rate limiting externo.' },
+      ],
+    },
+    {
+      id: 'frontend', cls: 'app', x: 120, y: 420, mark: 'FE',
+      name: 'Next.js 14 (frontend)',
+      tagline: 'App Router · TypeScript · Tailwind · puerto 3000 interno',
+      chips: [ {t:'PWA', k:'ok'}, {t:'App Router', k:'ok'}, {t:'Tailwind CSS', k:'ok'} ],
+      sections: [
+        { h: 'Responsabilidad', body: 'Aplicación web que el usuario final utiliza. Incluye las pantallas de login y registro, la lista de notas, el editor y los ajustes. Consume exclusivamente la API bajo /api.' },
+        { h: 'Estructura en el repo', body: 'frontend/app/* para páginas y layouts, frontend/components/* para componentes reutilizables, frontend/services/* para clientes HTTP, criptografía y sincronización.' },
+        { h: 'Experiencia de desarrollo', body: 'Hot reload habilitado mediante WATCHPACK_POLLING=true para compatibilidad con volúmenes Docker en Windows.' },
+      ],
+    },
+    {
+      id: 'laravel', cls: 'app', x: 500, y: 420, mark: 'BE',
+      name: 'Laravel 11 (backend API)',
+      tagline: 'PHP 8.3 FPM · dominios Auth, Notes, Tags, Search, Sync',
+      chips: [ {t:'Fase 1 completada', k:'ok'}, {t:'Sanctum', k:'ok'}, {t:'27 tests', k:'ok'} ],
+      sections: [
+        { h: 'Responsabilidad', body: 'Exponer la API REST bajo /api. Autenticar usuarios mediante Sanctum (personal access tokens Bearer). Persistir datos, delegar trabajos asíncronos y aplicar las reglas de negocio.' },
+        { h: 'Endpoints activos', body: 'auth: register, login, refresh, logout, me. notes: index, store, show, update, destroy, restore. tags: index, store, destroy. ping (healthcheck).' },
+        { h: 'Estructura en el repo', body: 'backend/app/Domains/<Dominio>/Http/Controllers para controladores. bootstrap/app.php para middleware y manejo de excepciones. routes/api.php para el enrutamiento.' },
+        { h: 'Contrato de error', body: 'Todas las respuestas de error siguen el formato { error: { code, message } } con códigos como VALIDATION_FAILED, UNAUTHENTICATED, NOT_FOUND.' },
+      ],
+    },
+    {
+      id: 'queue', cls: 'worker', x: 880, y: 420, mark: 'QW',
+      name: 'Queue Worker',
+      tagline: 'php artisan queue:work · reintentos 3 · backoff',
+      chips: [ {t:'Driver Redis', k:'ok'}, {t:'Fase 4 en adelante', k:'soon'} ],
+      sections: [
+        { h: 'Responsabilidad', body: 'Ejecutar trabajos pesados fuera del ciclo de request/response para mantener baja la latencia percibida por el usuario.' },
+        { h: 'Casos de uso previstos', body: 'Fase 3: reconstrucción de blind indexes. Fase 4: generación de embeddings con OpenAI e inserción en pgvector. Fase 5 y posteriores: envío de correos, webhooks, backups programados.' },
+        { h: 'Resiliencia', body: 'Hasta 3 reintentos por trabajo con tiempo máximo de 3600 segundos. Los fallos se persisten en la tabla failed_jobs para auditoría y reprocesado manual.' },
+      ],
+    },
+    {
+      id: 'postgres', cls: 'data', x: 120, y: 620, mark: 'PG',
+      name: 'PostgreSQL 16',
+      tagline: 'pgvector · uuid-ossp · pgcrypto · puerto 5432',
+      chips: [ {t:'pgvector 0.8.2', k:'ok'}, {t:'UUID v4 como PK', k:'ok'}, {t:'Soft delete', k:'ok'} ],
+      sections: [
+        { h: 'Responsabilidad', body: 'Fuente de verdad del sistema. Almacena usuarios, notas (cifradas a partir de Fase 2), tags, relaciones entre notas, blind indexes y embeddings vectoriales.' },
+        { h: 'Extensiones activas', body: 'pgvector habilita la búsqueda semántica por similitud. uuid-ossp genera identificadores únicos globales. pgcrypto ofrece primitivas criptográficas a nivel de base de datos.' },
+        { h: 'Estado zero-knowledge', body: 'Las columnas title_ciphertext, content_ciphertext, note_key_wrapped e iv almacenan datos cifrados en el cliente. El servidor los trata como bytes opacos.' },
+      ],
+    },
+    {
+      id: 'redis', cls: 'data', x: 500, y: 620, mark: 'RD',
+      name: 'Redis 7',
+      tagline: 'caché · sesiones · colas · puerto 6379',
+      chips: [ {t:'CACHE_STORE', k:'ok'}, {t:'SESSION_DRIVER', k:'ok'}, {t:'QUEUE_CONNECTION', k:'ok'} ],
+      sections: [
+        { h: 'Responsabilidad', body: 'Cumple tres roles simultáneos sobre la misma instancia: caché en memoria, almacén de sesiones cuando se use autenticación por cookies y cola de trabajos del worker.' },
+        { h: 'Separación lógica', body: 'Laravel usa prefijos diferenciados por store. Si la escala lo exige, es trivial migrar cada rol a bases de datos Redis separadas o a instancias dedicadas.' },
+      ],
+    },
+    {
+      id: 'minio', cls: 'data', x: 880, y: 620, mark: 'S3',
+      name: 'MinIO (almacenamiento S3)',
+      tagline: 'API :9000 · consola :9001 · bucket secondbrain',
+      chips: [ {t:'Compatible con AWS S3', k:'ok'}, {t:'AWS SDK', k:'ok'} ],
+      sections: [
+        { h: 'Responsabilidad', body: 'Almacenamiento de objetos para adjuntos cifrados de notas (Fase 2 en adelante), exportaciones de datos y backups generados por procesos programados.' },
+        { h: 'Configuración', body: 'Variables AWS_* en .env. Configuración de disco en backend/config/filesystems.php. Endpoint interno http://minio:9000 dentro de la red Docker.' },
+      ],
+    },
+    {
+      id: 'openai', cls: 'external', x: 1020, y: 60, mark: 'AI',
+      name: 'OpenAI (externo · opt-in)',
+      tagline: 'Embeddings text-embedding-3-small · 1536 dimensiones',
+      chips: [ {t:'Fase 4', k:'soon'}, {t:'Opt-in explícito', k:'warn'} ],
+      sections: [
+        { h: 'Responsabilidad', body: 'Proveer embeddings vectoriales a partir del contenido de las notas para habilitar búsqueda semántica.' },
+        { h: 'Implicancia de privacidad', body: 'Es la única integración que requiere enviar texto en claro hacia un proveedor externo. Se activa explícitamente por usuario y se comunica como una ruptura consciente del modelo zero-knowledge.' },
+        { h: 'Flujo', body: 'El Queue Worker descifra la nota en memoria, solicita el embedding, lo almacena en la tabla embeddings mediante pgvector y descarta el texto en claro. El backend no persiste la nota sin cifrar.' },
+      ],
+    },
+  ];
+
+  // -------- Render --------
+  const canvas = document.getElementById('canvas');
+  NODES.forEach(n => {
+    const el = document.createElement('div');
+    el.className = 'node ' + n.cls;
+    el.style.left = n.x + 'px';
+    el.style.top = n.y + 'px';
+    el.dataset.id = n.id;
+    const chips = (n.chips || []).map(c => `<span class="chip ${c.k||''}">${c.t}</span>`).join('');
+    el.innerHTML = `
+      <div class="title"><span class="mark">${n.mark}</span>${n.name}</div>
+      <div class="meta">${n.tagline}</div>
+      <div class="chips">${chips}</div>
+    `;
+    el.addEventListener('click', () => selectNode(n.id));
+    canvas.appendChild(el);
+  });
+
+  const panelEmpty = document.getElementById('panel-empty');
+  const panelContent = document.getElementById('panel-content');
+  function selectNode(id) {
+    document.querySelectorAll('.node').forEach(el => {
+      el.classList.toggle('active', el.dataset.id === id);
+    });
+    const n = NODES.find(x => x.id === id);
+    if (!n) return;
+    panelEmpty.style.display = 'none';
+    panelContent.style.display = 'block';
+    const bgVar = {
+      client: 'var(--c-client)', edge: 'var(--c-edge)', app: 'var(--c-app)',
+      worker: 'var(--c-worker)', data: 'var(--c-data)', external: 'var(--c-external)'
+    }[n.cls] || 'var(--brand-2)';
+    const chips = (n.chips || []).map(c => `<span class="chip ${c.k||''}">${c.t}</span>`).join('');
+    const sections = (n.sections || []).map(s => `<h3>${s.h}</h3><p>${s.body}</p>`).join('');
+    panelContent.innerHTML = `
+      <h2><span class="mark" style="background:${bgVar}">${n.mark}</span>${n.name}</h2>
+      <div class="tagline">${n.tagline}</div>
+      <div class="chips" style="margin: 4px 0 12px; display:flex; flex-wrap:wrap; gap:5px">${chips}</div>
+      ${sections}
+    `;
+  }
+  selectNode('laravel');
+</script>
+</body>
+</html>
