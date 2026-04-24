@@ -24,6 +24,7 @@ export type Note = {
   content_ciphertext: string;
   note_key_wrapped: string;
   iv: string;
+  encryption_version: number;
   client_id: string | null;
   client_version: number | null;
   tag_ids: string[];
@@ -73,6 +74,7 @@ export type NotePayload = {
   content_ciphertext: string;
   note_key_wrapped?: string;
   iv?: string;
+  encryption_version?: number;
   client_id?: string;
   client_version?: number;
   tag_ids?: string[];

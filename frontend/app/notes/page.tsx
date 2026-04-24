@@ -4,10 +4,13 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AppHeader } from '@/components/ui/AppHeader';
 import { NoteEditor } from '@/components/notes/NoteEditor';
 import { TagPicker } from '@/components/notes/TagPicker';
+import { UnlockDialog } from '@/components/ui/UnlockDialog';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
-import { notesApi, tagsApi } from '@/services/api';
-import { renderMarkdown } from '@/lib/markdown';
-import type { Note, Tag } from '@/types/api';
+import { useAuth } from '@/stores/auth';
+import { useCrypto } from '@/stores/crypto';
+import { tagsApi } from '@/services/api';
+import { notesCrypto, type DecryptedNote } from '@/services/notesCrypto';
+import type { Tag } from '@/types/api';
 
 type View =
   | { kind: 'list' }
@@ -16,8 +19,19 @@ type View =
 
 export default function NotesPage() {
   const status = useAuthGuard('protected');
+  const masterKey = useCrypto((s) => s.masterKey);
+  const vaultLocked = useCrypto((s) => s.locked);
+  const kdfSalt = useCrypto((s) => s.kdfSalt);
+  const user = useAuth((s) => s.user);
 
-  const [notes, setNotes] = useState<Note[]>([]);
+  // Mostrar el unlock sólo si el usuario REALMENTE tiene bóveda
+  // (kdf_salt guardado). Si no la tiene, es un legado Fase 1 y seguimos
+  // operando sin cifrado.
+  const userHasVault = !!(kdfSalt && user?.master_key_wrapped);
+  const showUnlock =
+    status === 'authenticated' && vaultLocked && userHasVault;
+
+  const [notes, setNotes] = useState<DecryptedNote[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -38,7 +52,7 @@ export default function NotesPage() {
     setError(null);
     try {
       const [noteRes, tagList] = await Promise.all([
-        notesApi.list({ per_page: 100, trashed: showTrashed }),
+        notesCrypto.list(masterKey, { per_page: 100, trashed: showTrashed }),
         tagsApi.list(),
       ]);
       setNotes(noteRes.data);
@@ -48,22 +62,21 @@ export default function NotesPage() {
     } finally {
       setLoading(false);
     }
-  }, [showTrashed]);
+  }, [showTrashed, masterKey]);
 
   useEffect(() => {
     if (status !== 'authenticated') return;
+    if (showUnlock) return; // esperamos a que el usuario desbloquee
     void reload();
-  }, [status, reload]);
+  }, [status, reload, showUnlock]);
 
-  // Filtro por texto: como el contenido aún no está cifrado (fase 1),
-  // hacemos match local sobre title/content_ciphertext (tratados como texto plano).
+  // Búsqueda local sobre el texto ya descifrado. En Fase 3 se añadirá
+  // blind index + full-text cifrado en IndexedDB.
   const filtered = useMemo(() => {
     if (!query.trim()) return notes;
     const q = query.toLowerCase();
     return notes.filter((n) =>
-      ((n.title_ciphertext ?? '') + ' ' + (n.content_ciphertext ?? ''))
-        .toLowerCase()
-        .includes(q),
+      ((n.title ?? '') + ' ' + (n.content ?? '')).toLowerCase().includes(q),
     );
   }, [notes, query]);
 
@@ -73,7 +86,7 @@ export default function NotesPage() {
     setView({ kind: 'create' });
   };
 
-  const openEdit = (note: Note) => {
+  const openEdit = (note: DecryptedNote) => {
     setEditorTagIds(note.tag_ids ?? []);
     setView({ kind: 'edit', id: note.id });
   };
@@ -87,18 +100,23 @@ export default function NotesPage() {
     title: string;
     content: string;
   }) => {
+    if (!masterKey) {
+      setError('La bóveda está bloqueada. Desbloqueala para guardar.');
+      return;
+    }
     setEditorSaving(true);
+    setError(null);
     try {
       if (view.kind === 'create') {
-        await notesApi.create({
-          title_ciphertext: title || null,
-          content_ciphertext: content,
+        await notesCrypto.create(masterKey, {
+          title,
+          content,
           tag_ids: editorTagIds,
         });
-      } else if (view.kind === 'edit') {
-        await notesApi.update(view.id, {
-          title_ciphertext: title || null,
-          content_ciphertext: content,
+      } else if (view.kind === 'edit' && editingNote) {
+        await notesCrypto.update(masterKey, editingNote.id, editingNote.note_key_wrapped, {
+          title,
+          content,
           tag_ids: editorTagIds,
         });
       }
@@ -114,7 +132,7 @@ export default function NotesPage() {
   const handleDelete = async (id: string) => {
     if (!confirm('¿Mover esta nota a la papelera?')) return;
     try {
-      await notesApi.remove(id);
+      await notesCrypto.remove(id);
       await reload();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Error al eliminar');
@@ -123,7 +141,7 @@ export default function NotesPage() {
 
   const handleRestore = async (id: string) => {
     try {
-      await notesApi.restore(id);
+      await notesCrypto.restore(masterKey, id);
       await reload();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Error al restaurar');
@@ -145,6 +163,7 @@ export default function NotesPage() {
   return (
     <>
       <AppHeader />
+      {showUnlock && <UnlockDialog />}
       <main className="mx-auto max-w-5xl px-6 py-8">
         {view.kind === 'list' ? (
           <ListView
@@ -184,7 +203,7 @@ export default function NotesPage() {
 // =================================================================
 
 function ListView(props: {
-  notes: Note[];
+  notes: DecryptedNote[];
   tags: Tag[];
   loading: boolean;
   error: string | null;
@@ -193,7 +212,7 @@ function ListView(props: {
   showTrashed: boolean;
   onToggleTrashed: () => void;
   onNew: () => void;
-  onEdit: (n: Note) => void;
+  onEdit: (n: DecryptedNote) => void;
   onDelete: (id: string) => void;
   onRestore: (id: string) => void;
 }) {
@@ -221,11 +240,16 @@ function ListView(props: {
     <>
       <header className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Mis notas</h1>
+          <h1 className="flex items-center gap-2 text-3xl font-bold tracking-tight">
+            Mis notas
+            <span className="rounded-md bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+              zero-knowledge
+            </span>
+          </h1>
           <p className="text-sm text-neutral-500">
             {showTrashed
               ? 'Mostrando notas en la papelera.'
-              : `${notes.length} ${notes.length === 1 ? 'nota' : 'notas'} activas.`}
+              : `${notes.length} ${notes.length === 1 ? 'nota' : 'notas'} activas · cifradas en tu dispositivo.`}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -254,7 +278,7 @@ function ListView(props: {
             type="search"
             value={query}
             onChange={(e) => onQuery(e.target.value)}
-            placeholder="Buscar en tus notas…"
+            placeholder="Buscar en tus notas (sobre texto ya descifrado)…"
             className="w-full rounded-lg border border-neutral-300 bg-transparent px-3 py-2 outline-none focus:border-brand-500 dark:border-neutral-700"
           />
         </div>
@@ -279,18 +303,44 @@ function ListView(props: {
             >
               <div className="mb-2 flex items-start justify-between gap-2">
                 <h3 className="line-clamp-1 font-semibold">
-                  {note.title_ciphertext || 'Sin título'}
+                  {note.decrypt_error
+                    ? '🔒 Nota cifrada'
+                    : note.title || 'Sin título'}
                 </h3>
-                <span className="shrink-0 text-[10px] uppercase tracking-wider text-neutral-400">
-                  {note.updated_at
-                    ? new Date(note.updated_at).toLocaleDateString()
-                    : ''}
-                </span>
+                <div className="flex shrink-0 items-center gap-2">
+                  {note.is_legacy && (
+                    <span
+                      className="rounded-sm bg-amber-500/10 px-1.5 text-[9px] font-semibold uppercase tracking-wider text-amber-700 dark:text-amber-400"
+                      title="Creada antes del cifrado E2E"
+                    >
+                      legada
+                    </span>
+                  )}
+                  {!note.is_legacy && !note.decrypt_error && (
+                    <span
+                      className="rounded-sm bg-emerald-500/10 px-1.5 text-[9px] font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-400"
+                      title={`Cifrado AES-256-GCM · v${note.encryption_version}`}
+                    >
+                      e2e
+                    </span>
+                  )}
+                  <span className="text-[10px] uppercase tracking-wider text-neutral-400">
+                    {note.updated_at
+                      ? new Date(note.updated_at).toLocaleDateString()
+                      : ''}
+                  </span>
+                </div>
               </div>
 
-              <p className="mb-3 line-clamp-3 whitespace-pre-wrap text-sm text-neutral-600 dark:text-neutral-400">
-                {note.content_ciphertext || '(vacía)'}
-              </p>
+              {note.decrypt_error ? (
+                <p className="mb-3 text-xs text-neutral-500">
+                  {note.decrypt_error}
+                </p>
+              ) : (
+                <p className="mb-3 line-clamp-3 whitespace-pre-wrap text-sm text-neutral-600 dark:text-neutral-400">
+                  {note.content || '(vacía)'}
+                </p>
+              )}
 
               {note.tag_ids && note.tag_ids.length > 0 && (
                 <div className="mb-3 flex flex-wrap gap-1">
@@ -330,7 +380,8 @@ function ListView(props: {
                     <button
                       type="button"
                       onClick={() => onEdit(note)}
-                      className="rounded-md border border-neutral-200 px-2 py-1 text-neutral-600 transition hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-900"
+                      disabled={!!note.decrypt_error}
+                      className="rounded-md border border-neutral-200 px-2 py-1 text-neutral-600 transition hover:bg-neutral-100 disabled:opacity-50 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-900"
                     >
                       Editar
                     </button>
@@ -362,9 +413,7 @@ function EmptyState({
   return (
     <div className="rounded-xl border border-dashed border-neutral-300 p-12 text-center dark:border-neutral-700">
       <p className="text-neutral-500">
-        {showTrashed
-          ? 'La papelera está vacía.'
-          : 'Todavía no tenés notas.'}
+        {showTrashed ? 'La papelera está vacía.' : 'Todavía no tenés notas.'}
       </p>
       {!showTrashed && (
         <button
@@ -385,7 +434,7 @@ function EmptyState({
 
 function EditorView(props: {
   mode: 'create' | 'edit';
-  note: Note | null;
+  note: DecryptedNote | null;
   tags: Tag[];
   selectedTagIds: string[];
   onTagIdsChange: (ids: string[]) => void;
@@ -416,8 +465,11 @@ function EditorView(props: {
           <h1 className="text-2xl font-bold tracking-tight">
             {mode === 'create'
               ? 'Crear una nota'
-              : note?.title_ciphertext || 'Sin título'}
+              : note?.title || 'Sin título'}
           </h1>
+          <p className="mt-1 text-xs text-emerald-600 dark:text-emerald-400">
+            Tu texto se cifra en este navegador antes de salir hacia el servidor.
+          </p>
         </div>
         <button
           type="button"
@@ -441,8 +493,8 @@ function EditorView(props: {
       </div>
 
       <NoteEditor
-        initialTitle={note?.title_ciphertext ?? ''}
-        initialContent={note?.content_ciphertext ?? ''}
+        initialTitle={note?.title ?? ''}
+        initialContent={note?.content ?? ''}
         onSave={onSave}
         onCancel={onCancel}
         saving={saving}

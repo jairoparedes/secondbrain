@@ -17,15 +17,23 @@ export default function HomePage() {
       <main className="mx-auto flex min-h-[calc(100vh-56px)] max-w-4xl flex-col items-start justify-center gap-10 px-6 py-20">
         <div>
           <p className="mb-2 text-sm font-medium uppercase tracking-widest text-brand-600">
-            secondbrain · fase 1
+            secondbrain · fase 2
           </p>
           <h1 className="text-5xl font-bold tracking-tight">
             Tu segundo cerebro, privado por diseño.
           </h1>
           <p className="mt-4 max-w-2xl text-lg text-neutral-500">
-            Notas cifradas de extremo a extremo, búsqueda semántica y
-            sincronización multidispositivo. Zero-knowledge real.
+            Notas cifradas de extremo a extremo con AES-256-GCM, clave derivada
+            con Argon2id en tu dispositivo. El servidor nunca ve tu texto.
           </p>
+          <div className="mt-4 inline-flex flex-wrap items-center gap-2 text-xs">
+            <span className="rounded-md bg-emerald-500/10 px-2 py-0.5 font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">
+              zero-knowledge activo
+            </span>
+            <span className="text-neutral-500">
+              AES-256-GCM · Argon2id (t=3, m=64MiB)
+            </span>
+          </div>
         </div>
 
         <div className="flex flex-wrap gap-3">
@@ -69,7 +77,7 @@ export default function HomePage() {
         </section>
 
         <footer className="mt-auto text-xs text-neutral-400">
-          v0.2 · Fase 1 completa: auth + CRUD notas + tags + 27 tests en el backend.
+          v0.3 · Fase 2: cifrado E2E con Argon2id + AES-256-GCM · 32 tests backend.
         </footer>
       </main>
     </>

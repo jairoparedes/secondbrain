@@ -49,10 +49,11 @@ class NotesController extends Controller
         $data = $request->validate([
             'title_ciphertext' => ['nullable', 'string'],
             // En Fase 1 aceptamos este campo como opaco. En Fase 2 el cliente
-            // mandará aquí el base64 del AES-256-GCM del contenido.
+            // manda el base64 (iv || aes-gcm-ct) auto-contenido.
             'content_ciphertext' => ['required', 'string'],
             'note_key_wrapped' => ['nullable', 'string'],
             'iv' => ['nullable', 'string', 'max:32'],
+            'encryption_version' => ['nullable', 'integer', 'min:0', 'max:255'],
             'client_id' => ['nullable', 'uuid'],
             'client_version' => ['nullable', 'integer', 'min:1'],
             'tag_ids' => ['nullable', 'array'],
@@ -63,9 +64,9 @@ class NotesController extends Controller
             'user_id' => $userId,
             'title_ciphertext' => $data['title_ciphertext'] ?? null,
             'content_ciphertext' => $data['content_ciphertext'],
-            // Valores placeholder para satisfacer el esquema actual hasta Fase 2.
             'note_key_wrapped' => $data['note_key_wrapped'] ?? '',
             'iv' => $data['iv'] ?? '',
+            'encryption_version' => $data['encryption_version'] ?? 0,
             'client_id' => $data['client_id'] ?? null,
             'client_version' => $data['client_version'] ?? 1,
         ]);
@@ -96,6 +97,7 @@ class NotesController extends Controller
             'content_ciphertext' => ['sometimes', 'string'],
             'note_key_wrapped' => ['sometimes', 'nullable', 'string'],
             'iv' => ['sometimes', 'nullable', 'string', 'max:32'],
+            'encryption_version' => ['sometimes', 'integer', 'min:0', 'max:255'],
             'client_id' => ['sometimes', 'nullable', 'uuid'],
             'client_version' => ['sometimes', 'integer', 'min:1'],
             'tag_ids' => ['sometimes', 'array'],
@@ -108,6 +110,7 @@ class NotesController extends Controller
                 'content_ciphertext' => $data['content_ciphertext'] ?? null,
                 'note_key_wrapped' => $data['note_key_wrapped'] ?? null,
                 'iv' => $data['iv'] ?? null,
+                'encryption_version' => $data['encryption_version'] ?? null,
                 'client_id' => $data['client_id'] ?? null,
                 'client_version' => $data['client_version'] ?? null,
             ],
@@ -165,6 +168,7 @@ class NotesController extends Controller
             'content_ciphertext' => $n->content_ciphertext,
             'note_key_wrapped' => $n->note_key_wrapped,
             'iv' => $n->iv,
+            'encryption_version' => (int) ($n->encryption_version ?? 0),
             'client_id' => $n->client_id,
             'client_version' => $n->client_version,
             'tag_ids' => $n->relationLoaded('tags') ? $n->tags->pluck('id')->values() : [],

@@ -21,6 +21,14 @@ class Note extends Model
         'content_ciphertext',
         'note_key_wrapped',
         'iv',
+        'encryption_version',
+        'client_id',
+        'client_version',
+    ];
+
+    protected $casts = [
+        'encryption_version' => 'integer',
+        'client_version' => 'integer',
     ];
 
     public function user(): BelongsTo

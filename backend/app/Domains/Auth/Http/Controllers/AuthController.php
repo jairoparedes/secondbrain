@@ -107,6 +107,58 @@ class AuthController extends Controller
         ]);
     }
 
+    /**
+     * Rotación de password zero-knowledge.
+     *
+     * El cliente:
+     *   1. Descifró master_key con la KEK vieja.
+     *   2. Derivó KEK nueva desde la password nueva + kdf_salt nuevo.
+     *   3. Re-wrappeó master_key con la KEK nueva → master_key_wrapped nuevo.
+     *
+     * El servidor:
+     *   - Verifica la password actual (Hash::check).
+     *   - Re-hashea la password nueva (bcrypt server-side, para Sanctum).
+     *   - Actualiza kdf_salt y master_key_wrapped con los valores que trae
+     *     el cliente. Las note_keys NO se tocan porque siguen wrappeadas
+     *     con la misma master_key.
+     *   - Revoca todos los demás tokens del usuario, deja vivo el actual.
+     */
+    public function changePassword(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'current_password' => ['required', 'string'],
+            'new_password' => ['required', 'string', Password::min(8)],
+            'new_kdf_salt' => ['required', 'string', 'max:255'],
+            'new_master_key_wrapped' => ['required', 'string'],
+        ]);
+
+        $user = $request->user();
+
+        if (! Hash::check($data['current_password'], $user->password)) {
+            throw ValidationException::withMessages([
+                'current_password' => 'La contraseña actual no es correcta.',
+            ]);
+        }
+
+        $user->forceFill([
+            'password' => $data['new_password'],
+            'kdf_salt' => $data['new_kdf_salt'],
+            'master_key_wrapped' => $data['new_master_key_wrapped'],
+        ])->save();
+
+        // Revocar todos los tokens excepto el actual.
+        $currentId = $request->user()->currentAccessToken()?->id;
+        $user->tokens()
+            ->when($currentId, fn ($q) => $q->where('id', '!=', $currentId))
+            ->delete();
+
+        return response()->json([
+            'data' => [
+                'message' => 'Contraseña actualizada. Las demás sesiones fueron cerradas.',
+            ],
+        ]);
+    }
+
     private function userResource(User $user): array
     {
         return [

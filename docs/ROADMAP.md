@@ -26,12 +26,15 @@ Frontend
 - [x] Búsqueda local por texto sobre notas cargadas
 - [x] Papelera: listar, eliminar (soft), restaurar
 
-## Fase 2 — Seguridad (2–3 semanas)
-- [ ] Derivación de clave en cliente (Argon2id WASM)
-- [ ] Cifrado AES-256-GCM de contenido y título
-- [ ] Wrapping de `note_key` con `master_key`
-- [ ] Flujo de cambio de password + rotación
-- [ ] Auditoría append-only
+## Fase 2 — Seguridad ✅
+- [x] Derivación de clave en cliente (Argon2id vía hash-wasm, t=3, m=64 MiB)
+- [x] Cifrado AES-256-GCM de título y contenido con note_key por nota
+- [x] Wrapping de `note_key` con `master_key` y `master_key` con KEK
+- [x] Flujo de cambio de password + rotación (re-wrap sin tocar notas)
+- [x] Compatibilidad con notas legadas de Fase 1 (`encryption_version=0`)
+- [x] UnlockDialog para re-derivar la master_key tras reload
+- [x] Smoke E2E verificado: blobs opacos en Postgres (sin fuga de texto)
+- [ ] Auditoría append-only (tabla audit_log con trigger tamper-evident)
 
 ## Fase 3 — Búsqueda (2–4 semanas)
 - [ ] Blind index (HMAC por token)
