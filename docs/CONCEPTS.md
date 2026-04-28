@@ -218,28 +218,62 @@ Conceptos asociados:
 
 ## 5. Conceptos transversales importantes
 
-### 5.1. Zero-knowledge y cifrado extremo a extremo (E2E)
+### 5.1. Zero-knowledge y cifrado extremo a extremo (E2E) — IMPLEMENTADO
 
 **Zero-knowledge** (cero conocimiento) significa que el servidor puede
 guardar tus notas pero no puede leerlas, porque nunca vio la contraseña
 ni la llave que las descifra.
 
-El truco:
-1. Cuando te registrás, el **navegador** toma tu contraseña y genera una
-   **llave maestra** usando un algoritmo llamado **Argon2id**.
-2. Esa llave **nunca sale del navegador**.
-3. Cuando escribís una nota, el navegador la cifra con **AES-256-GCM**
-   usando esa llave antes de enviarla al servidor.
-4. El servidor guarda bytes que parecen ruido. Si alguien robara la base
-   de datos, no podría leer nada.
-5. Para ver tus notas en otro dispositivo, te logueás con tu contraseña,
-   se vuelve a derivar la misma llave maestra en ese dispositivo y se
-   descifran.
+**El sistema usa tres niveles de llaves**, como cajas dentro de cajas:
 
-En el código esto está pensado pero se implementa en **Fase 2**. Por
-ahora (Fase 1) las notas se envían sin cifrar; los campos `title_ciphertext`
-y `content_ciphertext` aceptan el texto como una "caja opaca" que en
-Fase 2 empezará a contener cifrado real sin cambiar el backend.
+```
+Tu contraseña  →  KEK   →  master_key  →  note_key  →  texto cifrado
+```
+
+1. Cuando te registrás, el **navegador** toma tu contraseña y la pasa por
+   **Argon2id**, un algoritmo lento a propósito (~1 segundo) para que
+   nadie pueda probar millones de contraseñas por segundo. Eso produce
+   la **KEK** (Key Encryption Key).
+2. El navegador genera una **`master_key`** aleatoria de 256 bits. La
+   envuelve con la KEK (como meterla en una caja con la KEK como
+   candado) y se la entrega al servidor "cerrada con candado".
+3. Cada vez que escribís una nota, el navegador genera una **`note_key`**
+   aleatoria *para esa nota*. Cifra el título y el contenido con esa
+   note_key (AES-256-GCM, estándar moderno). Después envuelve la
+   note_key con la master_key y manda todo al servidor.
+4. El servidor guarda **bytes opacos** (base64 random). No tiene la
+   contraseña, no tiene la KEK, no tiene la master_key, no tiene las
+   note_keys. Si alguien robara la base de datos, vería ruido.
+
+**Verificación en vivo:**
+
+```bash
+docker compose exec postgres psql -U secondbrain -d secondbrain \
+  -c "SELECT LEFT(content_ciphertext, 40) FROM notes ORDER BY created_at DESC LIMIT 1;"
+```
+
+Vas a ver algo como `9A1G9LRtXUnn6nK3BAQeAfEJFFKCG4zj…`. No se parece en
+nada al texto que escribiste.
+
+**¿Y si recargás la página?** El token sigue en `localStorage`, pero la
+master_key vive solo en memoria del tab. Cuando volvés, la app te muestra
+un cuadro pidiendo tu contraseña: la usa para derivar la KEK de nuevo y
+desenvolver la master_key. Tarda ~1 segundo (Argon2id es lento por
+diseño).
+
+**¿Por qué tres niveles?** Porque cuando cambiás la contraseña, solo se
+re-envuelve la master_key con una KEK nueva. Las note_keys no cambian.
+Las notas no se re-cifran. Costo: una operación, no millones.
+
+#### ¿Qué pasa si te olvidás la contraseña?
+
+Hoy: **perdiste todas las notas**. El servidor literalmente no tiene
+forma de recuperarlas porque nunca tuvo la llave.
+
+En el futuro (Fase 2 endgame) habrá una palabra semilla de recuperación
+que envuelve la master_key como tercera ruta independiente. Si la
+guardás impresa en algún lado, podés recuperar la cuenta sin la
+contraseña.
 
 ### 5.2. Búsqueda semántica vs. búsqueda textual
 

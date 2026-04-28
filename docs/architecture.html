@@ -230,9 +230,9 @@
     responsabilidad, y dónde vive en el repo.
   </div>
   <div class="badges">
-    <span class="badge active"><span class="dot"></span>Fase 1 MVP backend</span>
+    <span class="badge active"><span class="dot"></span>Fase 2 cifrado E2E</span>
     <span class="badge">Fase 0 esqueleto</span>
-    <span class="badge next">Fase 2 cifrado E2E</span>
+    <span class="badge">Fase 1 MVP</span>
     <span class="badge next">Fase 3 búsqueda</span>
     <span class="badge next">Fase 4 IA</span>
     <span class="badge next">Fase 5 sync</span>
@@ -365,7 +365,7 @@
       id: 'client', cls: 'client', x: 80,  y: 60,  icon: '👤',
       name: 'Cliente',
       tagline: 'Navegador moderno · PWA instalable',
-      chips: [ {t:'Web Crypto API', k:'soon'}, {t:'IndexedDB', k:'soon'}, {t:'Bearer token', k:'ok'} ],
+      chips: [ {t:'Argon2id WASM', k:'ok'}, {t:'AES-256-GCM', k:'ok'}, {t:'IndexedDB', k:'soon'}, {t:'Bearer token', k:'ok'} ],
       sections: [
         { h: 'Responsabilidad', body: 'Renderiza la UI, guarda el token de Sanctum, ejecuta en local la criptografía (Fase 2+) y el index cifrado de búsqueda (Fase 3).' },
         { h: 'Offline-first (Fase 5)', body: 'Event log en IndexedDB con push/pull contra /api/sync. Resolución de conflictos last-writer-wins + merge manual.' },
@@ -401,7 +401,7 @@
       id: 'laravel', cls: 'app', x: 500, y: 410, icon: '🧠',
       name: 'Laravel 11 API',
       tagline: 'PHP 8.3-fpm · dominios Auth/Notes/Tags/Search/Sync',
-      chips: [ {t:'Fase 1 ✓', k:'ok'}, {t:'Sanctum', k:'ok'}, {t:'27 tests', k:'ok'} ],
+      chips: [ {t:'Fase 1+2 ✓', k:'ok'}, {t:'Sanctum', k:'ok'}, {t:'32 tests', k:'ok'} ],
       sections: [
         { h: 'Responsabilidad', body: 'API REST bajo /api. Autentica con Sanctum personal access tokens (Bearer). Errores uniformes como {error:{code,message}}.' },
         { h: 'Endpoints activos (Fase 1)', body: 'auth: register, login, refresh, logout, me · notes: CRUD + restore · tags: index/store/destroy · ping (healthcheck).' },

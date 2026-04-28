@@ -1,0 +1,109 @@
+# Overrides de producción.
+#
+# Uso:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+#
+# Cambios principales vs. desarrollo:
+#  - Se construye con targets `prod` (backend) y `runner` (frontend), por lo que
+#    el código vive DENTRO de las imágenes. No hay volúmenes de código que
+#    permitan tocar archivos en caliente.
+#  - Postgres, Redis, MinIO y nginx no exponen puertos al host. Solo Caddy
+#    expone 80/443 al exterior.
+#  - Se agrega Caddy como TLS termination con Let's Encrypt automático.
+#
+# Ver docs/DEPLOYMENT.md para el procedimiento completo.
+
+services:
+
+  # ---------- Caddy: TLS automático + headers de seguridad ----------
+  caddy:
+    image: caddy:2-alpine
+    container_name: sb_caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"   # HTTP/3
+    volumes:
+      - ./infra/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    environment:
+      - DOMAIN=${DOMAIN:-localhost}
+    depends_on:
+      - nginx
+    networks:
+      - sb_net
+
+  # ---------- nginx: solo accesible vía Caddy en la red interna ----------
+  nginx:
+    ports: !reset []   # quitamos el bind público
+    expose:
+      - "80"
+
+  # ---------- Backend: imagen self-contained (sin volume de código) ----------
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: prod
+    volumes: !override
+      # Solo persistimos storage/ (uploads y logs); el código va en la imagen.
+      - backend_storage:/var/www/html/storage
+    environment:
+      - APP_ENV=production
+      - APP_DEBUG=false
+
+  # ---------- Queue worker: misma imagen que backend ----------
+  queue:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: prod
+    volumes: !override
+      - backend_storage:/var/www/html/storage
+    environment:
+      - APP_ENV=production
+      - APP_DEBUG=false
+
+  # ---------- Frontend: build estático con server.js standalone ----------
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: runner
+    volumes: !override []   # imagen self-contained, no monta nada
+    environment:
+      - NODE_ENV=production
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+      - NEXT_PUBLIC_APP_NAME=${NEXT_PUBLIC_APP_NAME}
+
+  # ---------- Postgres: sin puerto público ----------
+  postgres:
+    ports: !reset []
+    expose:
+      - "5432"
+
+  # ---------- Redis: sin puerto público + password obligatorio ----------
+  redis:
+    ports: !reset []
+    expose:
+      - "6379"
+    command:
+      - redis-server
+      - --requirepass
+      - ${REDIS_PASSWORD}
+      - --appendonly
+      - "yes"
+
+  # ---------- MinIO: sin puerto público (acceso interno por backend) ----------
+  minio:
+    ports: !reset []
+    expose:
+      - "9000"
+      - "9001"
+
+volumes:
+  caddy_data:
+  caddy_config:
+  backend_storage:

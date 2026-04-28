@@ -1,0 +1,51 @@
+# Caddyfile de producción.
+#
+# El dominio se inyecta vía env var DOMAIN. En tu .env de producción definí:
+#   DOMAIN=notas.tu-dominio.com
+#
+# Caddy gestiona TLS automáticamente vía Let's Encrypt. La primera vez
+# que arranque, validará el dominio (HTTP-01 challenge en :80) y obtendrá
+# el certificado.
+
+{$DOMAIN} {
+    encode zstd gzip
+
+    # ---------- Headers de seguridad ----------
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+        X-Frame-Options            "DENY"
+        X-Content-Type-Options     "nosniff"
+        Referrer-Policy            "strict-origin-when-cross-origin"
+        Permissions-Policy         "geolocation=(), microphone=(), camera=()"
+        # CSP — wasm-unsafe-eval es necesario para Argon2id (hash-wasm)
+        Content-Security-Policy    "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+        # No leakear que el back es nginx
+        -Server
+    }
+
+    # ---------- Reverse proxy a nginx interno ----------
+    # Nginx ya rutea /api → backend (FastCGI) y / → frontend (Next.js).
+    reverse_proxy nginx:80 {
+        header_up Host {host}
+        header_up X-Real-IP {remote}
+        header_up X-Forwarded-For {remote}
+        header_up X-Forwarded-Proto https
+    }
+
+    # ---------- Logs ----------
+    log {
+        output stdout
+        format json
+        level INFO
+    }
+}
+
+# Si querés exponer la consola de MinIO solo a sysadmins (recomendado:
+# acceso por SSH tunnel, NO público), descomentá lo siguiente:
+#
+# admin.{$DOMAIN} {
+#     basicauth {
+#         admin <hash-bcrypt-de-tu-password>
+#     }
+#     reverse_proxy minio:9001
+# }

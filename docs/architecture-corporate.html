@@ -320,15 +320,15 @@
       <div class="title">Documento</div>
       <div>ARCH-REF · v1.0</div>
       <div>Clasificación: interno</div>
-      <div>Estado: Fase 1 MVP · backend</div>
+      <div>Estado: Fase 2 · cifrado E2E activo</div>
     </div>
   </div>
 
   <div class="status-strip">
     <div class="phase done"><div class="n">Fase 0</div><div class="t">Esqueleto e infraestructura</div><div class="tag">Completado</div></div>
-    <div class="phase doing"><div class="n">Fase 1</div><div class="t">MVP backend · Auth + Notes + Tags</div><div class="tag">En curso</div></div>
-    <div class="phase soon"><div class="n">Fase 2</div><div class="t">Cifrado extremo a extremo</div><div class="tag">Planificado</div></div>
-    <div class="phase soon"><div class="n">Fase 3</div><div class="t">Búsqueda (FTS + blind index)</div><div class="tag">Planificado</div></div>
+    <div class="phase done"><div class="n">Fase 1</div><div class="t">MVP backend + frontend completo</div><div class="tag">Completado</div></div>
+    <div class="phase done"><div class="n">Fase 2</div><div class="t">Cifrado extremo a extremo (Argon2id + AES-GCM)</div><div class="tag">Completado</div></div>
+    <div class="phase doing"><div class="n">Fase 3</div><div class="t">Búsqueda (FTS + blind index)</div><div class="tag">Próximo</div></div>
     <div class="phase soon"><div class="n">Fase 4</div><div class="t">Inteligencia artificial</div><div class="tag">Planificado</div></div>
     <div class="phase soon"><div class="n">Fase 5</div><div class="t">Sincronización multi-dispositivo</div><div class="tag">Planificado</div></div>
   </div>
@@ -490,7 +490,7 @@
       id: 'client', cls: 'client', x: 80,  y: 60,  mark: 'CL',
       name: 'Cliente (navegador / PWA)',
       tagline: 'Capa de presentación y criptografía local',
-      chips: [ {t:'Web Crypto API', k:'soon'}, {t:'IndexedDB', k:'soon'}, {t:'Bearer token', k:'ok'} ],
+      chips: [ {t:'Argon2id WASM', k:'ok'}, {t:'AES-256-GCM', k:'ok'}, {t:'IndexedDB', k:'soon'}, {t:'Bearer token', k:'ok'} ],
       sections: [
         { h: 'Responsabilidad', body: 'Renderiza la interfaz de usuario, conserva el token emitido por Sanctum, y ejecuta localmente la criptografía en las fases que lo requieren.' },
         { h: 'Estrategia offline (Fase 5)', body: 'Event log en IndexedDB con sincronización mediante push/pull contra /api/sync. Resolución de conflictos: last-writer-wins con posibilidad de merge manual.' },
@@ -524,7 +524,7 @@
       id: 'laravel', cls: 'app', x: 500, y: 420, mark: 'BE',
       name: 'Laravel 11 (backend API)',
       tagline: 'PHP 8.3 FPM · dominios Auth, Notes, Tags, Search, Sync',
-      chips: [ {t:'Fase 1 completada', k:'ok'}, {t:'Sanctum', k:'ok'}, {t:'27 tests', k:'ok'} ],
+      chips: [ {t:'Fase 1+2 completadas', k:'ok'}, {t:'Sanctum', k:'ok'}, {t:'32 tests', k:'ok'} ],
       sections: [
         { h: 'Responsabilidad', body: 'Exponer la API REST bajo /api. Autenticar usuarios mediante Sanctum (personal access tokens Bearer). Persistir datos, delegar trabajos asíncronos y aplicar las reglas de negocio.' },
         { h: 'Endpoints activos', body: 'auth: register, login, refresh, logout, me. notes: index, store, show, update, destroy, restore. tags: index, store, destroy. ping (healthcheck).' },

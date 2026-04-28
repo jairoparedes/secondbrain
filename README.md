@@ -2,25 +2,32 @@
 
 Sistema privado de notas con arquitectura **zero-knowledge**, búsqueda semántica e IA.
 
-> Estado: **esqueleto inicial** — estructura completa, stubs de endpoints, sin lógica de negocio todavía.
+> **Estado actual:** Fase 2 completada — cifrado E2E real (Argon2id + AES-256-GCM) con
+> 32 tests backend pasando. La app es usable end-to-end: registrarse, escribir notas
+> cifradas, organizarlas con tags, papelera, rotación de password.
 
 ---
 
 ## Stack
 
-| Capa        | Tecnología                                |
-|-------------|-------------------------------------------|
-| Frontend    | Next.js 14 (App Router) + TypeScript + Tailwind |
-| Backend     | Laravel 11 (PHP 8.3)                      |
-| DB          | PostgreSQL 16 + `pgvector` + `uuid-ossp`  |
-| Cache/Queue | Redis 7                                   |
-| Storage     | MinIO (S3-compatible)                     |
-| Proxy       | Nginx                                     |
-| Orquestación| Docker Compose                            |
+| Capa        | Tecnología                                | Estado |
+|-------------|-------------------------------------------|--------|
+| Frontend    | Next.js 14 (App Router) + TypeScript + Tailwind | ✅ Fase 1+2 |
+| Cifrado     | Web Crypto + `hash-wasm` (Argon2id WASM)  | ✅ Fase 2 |
+| Backend     | Laravel 11 (PHP 8.3) + Sanctum            | ✅ Fase 1+2 |
+| DB          | PostgreSQL 16 + `pgvector` + `uuid-ossp`  | ✅ Listo |
+| Cache/Queue | Redis 7                                   | ✅ Listo |
+| Storage     | MinIO (S3-compatible)                     | ✅ Listo |
+| Proxy       | Nginx                                     | ✅ Listo |
+| Orquestación| Docker Compose                            | ✅ Listo |
+
+Más detalle en [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) y los diagramas
+interactivos en [`docs/architecture.html`](docs/architecture.html) /
+[`docs/architecture-corporate.html`](docs/architecture-corporate.html).
 
 ---
 
-## Arranque rápido
+## Arranque rápido (desarrollo)
 
 ### Requisitos
 - Docker Desktop 24+
@@ -29,56 +36,78 @@ Sistema privado de notas con arquitectura **zero-knowledge**, búsqueda semánti
 ### Pasos
 
 ```bash
-# 1. Copiar variables de entorno
+# 1. Variables de entorno
 cp .env.example .env
 
-# 2. Levantar stack completo
+# 2. Levantar el stack (la primera vez tarda: composer + npm)
 docker compose up -d --build
 
-# 3. Ver logs (primera vez tarda: instala composer + npm)
+# 3. Ver logs
 docker compose logs -f backend frontend
 ```
 
 Una vez arriba:
 
-- Frontend: http://localhost
-- API:      http://localhost/api
-- MinIO:    http://localhost:9001 (consola)
-- Postgres: `localhost:5432` (user/pass en `.env`)
+| Servicio          | URL                              |
+|-------------------|----------------------------------|
+| App               | http://localhost                 |
+| API               | http://localhost/api             |
+| MinIO consola     | http://localhost:9001            |
+| Postgres          | `localhost:5432`                 |
+
+Crear cuenta desde la UI en http://localhost/register; el cifrado se activa
+automáticamente. Toda nota nueva sale cifrada del navegador.
 
 ### Comandos útiles
 
 ```bash
-# Bash dentro del backend
-docker compose exec backend sh
+# Tests del backend (32/32)
+docker compose exec backend php artisan test
 
-# Artisan
-docker compose exec backend php artisan migrate
-docker compose exec backend php artisan tinker
+# Smoke test de cifrado contra el API
+docker compose exec frontend node scripts/crypto-api-e2e.mjs
 
-# Logs de un solo servicio
-docker compose logs -f backend
+# Verificar que Postgres guarda blobs opacos
+docker compose exec postgres psql -U secondbrain -d secondbrain \
+  -c "SELECT LEFT(title_ciphertext, 40) FROM notes ORDER BY created_at DESC LIMIT 3;"
 
 # Reset completo (borra volúmenes)
 docker compose down -v
 ```
 
-Los scripts de `scripts/` envuelven estos comandos para Windows (PowerShell) y Unix.
+Los scripts de `scripts/` envuelven los comandos comunes para Windows (PowerShell).
+
+---
+
+## Producción
+
+Guía completa paso a paso en [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md):
+
+- VPS único con Docker Compose + Caddy (TLS automático)
+- VPS separando DB managed
+- Build con imágenes inmutables (sin volúmenes de código)
+- Checklist de hardening: secrets, CORS, CSP, HSTS, backups, monitoreo
 
 ---
 
 ## Estructura del monorepo
 
 ```
-second-brain/
-├── backend/          # Laravel 11 API (dominios: Auth, Notes, Tags, Search, Sync)
-├── frontend/         # Next.js 14 (App Router, PWA, offline-first)
-├── infra/            # nginx, postgres init, otros configs de infra
-│   ├── nginx/
-│   └── postgres/
-├── docs/             # Decisiones de arquitectura, diagramas
-├── scripts/          # Utilidades de desarrollo
-├── docker-compose.yml
+secondbrain/
+├── backend/          # Laravel 11 API
+│   ├── app/Domains/  # Auth, Notes, Tags, Search, Sync
+│   ├── tests/        # 32 tests Feature pasando
+│   └── ...
+├── frontend/         # Next.js 14 + TypeScript
+│   ├── app/          # /, /login, /register, /notes
+│   ├── services/     # api.ts, crypto.ts, notesCrypto.ts
+│   ├── stores/       # auth.ts, crypto.ts (master_key en memoria)
+│   └── ...
+├── infra/            # nginx, postgres init
+├── docs/             # ARCHITECTURE, SECURITY, API, DEPLOYMENT, CONCEPTS
+├── scripts/          # Helpers PowerShell + smoke tests
+├── docker-compose.yml          # dev
+├── docker-compose.prod.yml     # producción
 ├── .env.example
 └── README.md
 ```
@@ -88,21 +117,33 @@ second-brain/
 ## Roadmap
 
 - [x] **Fase 0** — Esqueleto del monorepo + Docker Compose
-- [ ] **Fase 1** — MVP: Auth + CRUD notas + Tags (sin cifrado)
-- [ ] **Fase 2** — Cifrado E2E (AES-256-GCM + Argon2 en cliente)
-- [ ] **Fase 3** — Búsqueda full-text con `tsvector`
-- [ ] **Fase 4** — IA: embeddings + búsqueda semántica
+- [x] **Fase 1** — MVP backend (Sanctum, CRUD notas, tags) + frontend conectado
+- [x] **Fase 2** — Cifrado E2E (Argon2id + AES-256-GCM, rotación de password)
+- [ ] **Fase 3** — Búsqueda full-text con blind indexes + IndexedDB cifrado
+- [ ] **Fase 4** — IA: embeddings + búsqueda semántica con pgvector
 - [ ] **Fase 5** — Sincronización multi-device (offline-first)
 - [ ] **Fase 6** — UX Pro (editor tipo Notion, grafo visual)
-- [ ] **Fase 7** — Cloud + DevOps (CI/CD, K8s)
+- [ ] **Fase 7** — Cloud + DevOps (CI/CD, K8s, observabilidad)
 
-Detalle en `docs/ROADMAP.md`.
+Detalle en [`docs/ROADMAP.md`](docs/ROADMAP.md).
 
 ---
 
-## Documentación técnica
+## Documentación
 
-- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — Arquitectura general
-- [`docs/SECURITY.md`](docs/SECURITY.md) — Modelo de cifrado zero-knowledge
-- [`docs/API.md`](docs/API.md) — Endpoints (contratos iniciales)
-- [`docs/ROADMAP.md`](docs/ROADMAP.md) — Plan por fases
+| Documento | Para qué sirve |
+|---|---|
+| [`docs/CONCEPTS.md`](docs/CONCEPTS.md) | Guía para principiantes con analogías y flujos |
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Arquitectura técnica, ADRs, dominios |
+| [`docs/SECURITY.md`](docs/SECURITY.md) | Modelo de amenazas, derivación de claves, zero-knowledge |
+| [`docs/API.md`](docs/API.md) | Contratos de endpoints HTTP con ejemplos |
+| [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) | Guía paso a paso para llevar a producción |
+| [`docs/ROADMAP.md`](docs/ROADMAP.md) | Plan por fases con checklist |
+| [`docs/architecture.html`](docs/architecture.html) | Diagrama interactivo (tema dark) |
+| [`docs/architecture-corporate.html`](docs/architecture-corporate.html) | Diagrama interactivo (tema light, formal) |
+
+---
+
+## Licencia
+
+Privado. Todos los derechos reservados.

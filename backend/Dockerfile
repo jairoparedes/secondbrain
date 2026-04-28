@@ -1,5 +1,11 @@
 # syntax=docker/dockerfile:1.6
 
+# ============================================================
+# Multi-stage Dockerfile.
+# - target: base   → para desarrollo (el código se monta vía volume)
+# - target: prod   → imagen self-contained con código + composer install
+# ============================================================
+
 FROM php:8.3-fpm-alpine AS base
 
 # Dependencias del sistema
@@ -57,3 +63,25 @@ RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
 ENTRYPOINT ["docker-entrypoint.sh"]
 CMD ["php-fpm", "-F"]
+
+
+# ---------- Production target ----------
+# Self-contained: el código y vendor/ viven dentro de la imagen.
+# Usar con `docker compose -f docker-compose.yml -f docker-compose.prod.yml build`.
+FROM base AS prod
+
+ENV APP_ENV=production \
+    APP_DEBUG=false \
+    COMPOSER_ALLOW_SUPERUSER=1
+
+# Copiamos primero composer.json/lock para aprovechar la cache de capas
+COPY composer.json composer.lock ./
+RUN composer install --no-interaction --no-dev --prefer-dist \
+        --optimize-autoloader --no-scripts --no-progress
+
+# Resto del código
+COPY . .
+
+# Permisos para storage y bootstrap/cache (Laravel los necesita escribibles)
+RUN chown -R app:app storage bootstrap/cache \
+ && chmod -R ug+rwx storage bootstrap/cache
