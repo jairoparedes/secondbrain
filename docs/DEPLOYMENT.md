@@ -1,7 +1,11 @@
-# Guía de despliegue a producción
+# Guía de despliegue a producción (VPS genérico)
 
 Esta guía cubre el camino más simple y seguro para llevar Second Brain de
 desarrollo (`docker compose up`) a un servidor real con un dominio y TLS.
+
+> **¿Vas a Google Cloud?** Hay una guía específica con scripts
+> automatizados en [`DEPLOY-GCP.md`](DEPLOY-GCP.md). Esta guía sirve
+> para Hetzner, DigitalOcean, Linode, Vultr, AWS Lightsail, etc.
 
 > **Resumen ejecutivo:** un VPS pequeño (2 vCPU / 4 GB RAM) con Docker
 > Compose + Caddy alcanza para algunos cientos de usuarios. Costo

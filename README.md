@@ -81,12 +81,17 @@ Los scripts de `scripts/` envuelven los comandos comunes para Windows (PowerShel
 
 ## Producción
 
-Guía completa paso a paso en [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md):
+- **Genérico (cualquier VPS):** [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md)
+- **Google Cloud:** [`docs/DEPLOY-GCP.md`](docs/DEPLOY-GCP.md) + scripts
+  automatizados en [`scripts/gcp/`](scripts/gcp/) — un comando crea la VM,
+  otro la configura y deja todo levantado con TLS y backups diarios.
 
-- VPS único con Docker Compose + Caddy (TLS automático)
-- VPS separando DB managed
+Lo que cubren:
+
+- VPS / Compute Engine único con Docker Compose + Caddy (TLS automático)
 - Build con imágenes inmutables (sin volúmenes de código)
-- Checklist de hardening: secrets, CORS, CSP, HSTS, backups, monitoreo
+- Backups diarios a Cloud Storage / S3
+- Hardening: secrets, CORS, CSP, HSTS, monitoreo
 
 ---
 
@@ -137,7 +142,8 @@ Detalle en [`docs/ROADMAP.md`](docs/ROADMAP.md).
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Arquitectura técnica, ADRs, dominios |
 | [`docs/SECURITY.md`](docs/SECURITY.md) | Modelo de amenazas, derivación de claves, zero-knowledge |
 | [`docs/API.md`](docs/API.md) | Contratos de endpoints HTTP con ejemplos |
-| [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) | Guía paso a paso para llevar a producción |
+| [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) | Guía genérica para llevar a producción (VPS) |
+| [`docs/DEPLOY-GCP.md`](docs/DEPLOY-GCP.md) | Guía específica para Google Cloud Platform |
 | [`docs/ROADMAP.md`](docs/ROADMAP.md) | Plan por fases con checklist |
 | [`docs/architecture.html`](docs/architecture.html) | Diagrama interactivo (tema dark) |
 | [`docs/architecture-corporate.html`](docs/architecture-corporate.html) | Diagrama interactivo (tema light, formal) |
