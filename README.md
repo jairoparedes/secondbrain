@@ -81,10 +81,21 @@ Los scripts de `scripts/` envuelven los comandos comunes para Windows (PowerShel
 
 ## Producción
 
-- **Genérico (cualquier VPS):** [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md)
-- **Google Cloud:** [`docs/DEPLOY-GCP.md`](docs/DEPLOY-GCP.md) + scripts
-  automatizados en [`scripts/gcp/`](scripts/gcp/) — un comando crea la VM,
-  otro la configura y deja todo levantado con TLS y backups diarios.
+**Atajo (cualquier VPS Linux):** un único comando hace todo el bootstrap
+(Docker + secrets + stack + TLS + backups). Conectate al VPS por SSH y
+pegá:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/jairoparedes/secondbrain/main/scripts/deploy/bootstrap-vps.sh \
+  | sudo bash -s -- notas.midominio.com
+```
+
+Detalles, operación día a día y backups remotos con rclone:
+
+- [`scripts/deploy/`](scripts/deploy/) · scripts y README de operación
+- [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) · explicación detrás del script
+- [`docs/DEPLOY-GCP.md`](docs/DEPLOY-GCP.md) · variante específica para
+  Google Cloud (con IP estática, snapshots y Cloud Storage nativos)
 
 Lo que cubren:
 
