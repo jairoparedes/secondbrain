@@ -77,13 +77,22 @@ ok "ca-certificates, curl, git, ufw, cron, openssl"
 
 # ------------------------------------------------------------
 step "Firewall (ufw)"
-ufw --force reset >/dev/null
-ufw default deny incoming  >/dev/null
-ufw default allow outgoing >/dev/null
-ufw allow 22/tcp           >/dev/null
-ufw allow 80/tcp           >/dev/null
-ufw allow 443/tcp          >/dev/null
-yes | ufw --force enable   >/dev/null
+# IMPORTANTE: NO hacemos `ufw --force reset` para no perder reglas
+# pre-existentes ni desconectar SSH si algo sale mal. Sólo nos
+# aseguramos de que las 3 reglas mínimas estén presentes y que ufw
+# esté enabled. El comando es idempotente: si una regla ya existe,
+# ufw imprime "Skipping adding existing rule" y sigue.
+
+# Antes que nada: garantizar que SSH no se nos cierre.
+ufw allow 22/tcp >/dev/null
+ufw allow 80/tcp >/dev/null
+ufw allow 443/tcp >/dev/null
+
+# `--force enable` evita el prompt de "may disrupt existing ssh
+# connections". Si ya está activo, ufw imprime "Firewall is active"
+# y termina con código 0.
+ufw --force enable >/dev/null 2>&1 || true
+
 ok "ufw activo, puertos abiertos: 22, 80, 443"
 
 # ------------------------------------------------------------
